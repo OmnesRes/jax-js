@@ -2738,6 +2738,15 @@ suite.each(devices)("device:%s", (device) => {
       expect(dz.js()).toEqual([1, 0, 0]);
     });
 
+    test("splits gradient evenly at ties, like JAX", () => {
+      const g = grad((x: np.Array) => np.minimum(x, 1));
+      expect(g(np.array(1)).js()).toEqual(0.5);
+      expect(jit(g)(np.array(1)).js()).toEqual(0.5);
+      expect(vmap(g)(np.array([0, 1, 2])).js()).toEqual([1, 0.5, 0]);
+      const g2 = grad((x: np.Array) => np.minimum(1, x));
+      expect(g2(np.array(1)).js()).toEqual(0.5);
+    });
+
     test("minimum of bools", () => {
       const x = np.array([true, false, true]);
       const y = np.array([false, false, true]);
@@ -2804,6 +2813,15 @@ suite.each(devices)("device:%s", (device) => {
       );
       expect(z.js()).toEqual([4, 2, 3]);
       expect(dz.js()).toEqual([0, 0, 1]);
+    });
+
+    test("splits gradient evenly at ties, like JAX", () => {
+      const g = grad((x: np.Array) => np.maximum(x, 1));
+      expect(g(np.array(1)).js()).toEqual(0.5);
+      expect(jit(g)(np.array(1)).js()).toEqual(0.5);
+      expect(vmap(g)(np.array([0, 1, 2])).js()).toEqual([0, 0.5, 1]);
+      const g2 = grad((x: np.Array) => np.maximum(1, x));
+      expect(g2(np.array(1)).js()).toEqual(0.5);
     });
   });
 
@@ -3395,7 +3413,7 @@ suite.each(devices)("device:%s", (device) => {
     });
 
     test("has the correct gradient", () => {
-      const values = [-0.5, -0.001, 0, 0.001, 0.5];
+      const values = [-0.5, -0.2, -0.001, 0, 0.001, 0.2, 0.5];
       const dx = grad((x: np.Array) => np.log1p(x).sum())(np.array(values));
       expect(dx).toBeAllclose(values.map((x) => 1 / (1 + x)));
     });
