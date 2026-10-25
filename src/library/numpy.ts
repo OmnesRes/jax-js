@@ -1945,16 +1945,12 @@ export function matmul(x: ArrayLike, y: ArrayLike) {
   if (y.ndim === 1) {
     // Matrix-vector product
     return core.dot(x, y) as Array;
+  } else if (x.ndim === 1) {
+    // Vector-matrix product
+    return core.dot(x, swapaxes(y, -1, -2)) as Array;
   }
-
-  // Otherwise, we multiply x: [..., N, K] and y: [..., K, M]
-  const numBatchDims = Math.min(Math.max(x.ndim, 2), y.ndim) - 2;
-  return lax.dot(x, y, {
-    lhsContractingDims: [-1],
-    rhsContractingDims: [-2],
-    lhsBatchDims: range(-2 - numBatchDims, -2),
-    rhsBatchDims: range(-2 - numBatchDims, -2),
-  });
+  // Otherwise, we multiply x: [..., N, K] and y: [..., K, M].
+  return einsum("...nk,...km->...nm", x, y);
 }
 
 /** Matrix-vector product. x1 is [..., M, N], x2 is [..., N] → [..., M]. */

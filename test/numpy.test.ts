@@ -2024,6 +2024,95 @@ suite.each(devices)("device:%s", (device) => {
       ]);
     });
 
+    test("broadcasts 2D matrix against stacked matrices", () => {
+      const a = np.array([
+        [1, 2],
+        [3, 4],
+      ]);
+      const b = np.array([
+        [
+          [1, 0],
+          [0, 1],
+        ],
+        [
+          [0, 1],
+          [1, 0],
+        ],
+        [
+          [2, 0],
+          [0, 2],
+        ],
+      ]);
+      const c = np.matmul(a, b);
+      expect(c.shape).toEqual([3, 2, 2]);
+      expect(c.js()).toEqual([
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        [
+          [2, 1],
+          [4, 3],
+        ],
+        [
+          [2, 4],
+          [6, 8],
+        ],
+      ]);
+    });
+
+    test("broadcasts batch dims of different ranks", () => {
+      const a = np.arange(4).reshape([2, 1, 1, 2]);
+      const b = np.arange(6).reshape([3, 2, 1]);
+      const c = np.matmul(a, b);
+      expect(c.shape).toEqual([2, 3, 1, 1]);
+      expect(c.reshape([2, 3]).js()).toEqual([
+        [1, 3, 5],
+        [3, 13, 23],
+      ]);
+    });
+
+    test.each([
+      [
+        [2, 3],
+        [4, 3, 5],
+      ],
+      [
+        [2, 3],
+        [2, 4, 3, 5],
+      ],
+      [
+        [1, 2, 3],
+        [2, 4, 3, 5],
+      ],
+      [
+        [2, 1, 2, 3],
+        [4, 3, 5],
+      ],
+      [
+        [2, 3, 1, 2, 3],
+        [4, 3, 5],
+      ],
+      [
+        [4, 2, 3],
+        [2, 3, 1, 3, 5],
+      ],
+    ])("matches einsum for mixed ranks %j @ %j", (xShape, yShape) => {
+      const x = np
+        .arange(xShape.reduce((a, b) => a * b))
+        .astype(np.float32)
+        .reshape(xShape);
+      const y = np
+        .arange(yShape.reduce((a, b) => a * b))
+        .astype(np.float32)
+        .reshape(yShape);
+      const expected = np.einsum("...ij,...jk->...ik", x.ref, y.ref);
+      expect(np.matmul(x.ref, y.ref)).toBeAllclose(expected.ref);
+      const matmul = jit(np.matmul);
+      onTestFinished(() => matmul.dispose());
+      expect(matmul(x, y)).toBeAllclose(expected);
+    });
+
     test("jit with fused bias and relu", () => {
       const matmulWithBiasAndRelu = jit(
         (x: np.Array, w: np.Array, b: np.Array) => {
